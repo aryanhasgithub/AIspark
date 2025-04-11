@@ -17,7 +17,6 @@ import pyjokes
 import wikipedia
 import subprocess
 import webcolors
-import pvporcupine
 import pyaudio
 import struct
 import re
@@ -26,11 +25,14 @@ import PIL.Image
 import cv2
 import sqlite3
 import pandas as pd
+import numpy as np
+from openwakeword.model import Model  # New import for OpenWakeWord
+
 # Initialize pygame mixer (used for TTS and for sound prompts)
 pygame.mixer.init()
 
 # Initialize the Gemini client (for cloud completions)
-client = genai.Client(api_key="Your_api_key")
+client = genai.Client(api_key="AIzaSyDsg34ztOlb5yqVtm35yQTUuMwwgxOUqeQ")
 
 class Assistant:
     def __init__(self, home_assistant_url, access_token, groqcloud_key, weather_api_key):
@@ -45,14 +47,14 @@ class Assistant:
 
         # TTS: Using edge_tts for streaming TTS with pygame playback.
         self.speak_thread = None
-        self.porcupine = pvporcupine.create(
-               access_key='api-key-porcupine',
-               keyword_paths=[r"Path to ppn "]
-         )
-        self.pa = pyaudio.PyAudio()
-        self.audio_stream = self.pa.open(format=pyaudio.paInt16, channels=1, rate=self.porcupine.sample_rate,
-                                         input=True, frames_per_buffer=self.porcupine.frame_length)
 
+        # Initialize OpenWakeWord model instead of Porcupine.
+        self.owwModel = Model(inference_framework='tflite')
+        # Set parameters for audio stream
+        self.CHUNK_SIZE = 1280
+        self.SAMPLE_RATE = 16000
+
+        
 
     def speak(self, message):
         """Speak the message using edge‑tts streaming and pygame for playback."""
@@ -190,8 +192,6 @@ class Assistant:
         elif "time" in command:
             t = datetime.now().strftime('%I:%M %p')
             self.speak(t)
-        elif "play" in command:
-            self.getmusic(command.replace("play", "").strip())
         elif "joke" in command:
             j = pyjokes.get_joke()
             self.speak(j)
@@ -202,7 +202,6 @@ class Assistant:
         elif "stop" in command:
             pygame.mixer.music.stop()
         elif "recognise this image" in command:
-            
             cap = cv2.VideoCapture(0)
             ret, frame = cap.read()
             cv2.imshow("Captured Image", frame)  # Show the image
@@ -212,22 +211,19 @@ class Assistant:
             cap.release()
             cv2.destroyAllWindows()
         elif "remember" in command:
-            remem = command.replace("remember","")
+            remem = command.replace("remember", "")
             self.remember(remem)
         elif "recall" in command:
             self.whatWasRemembered() 
         elif "clean all memory" in command:
-            
             self.cleanallMemory()  
         elif "forget" in command:
-            forget = command.replace("forget","")
+            forget = command.replace("forget", "")
             self.forget(forget)        
-        
+        elif "play" in command:
+            self.getmusic(command.replace("play", "").strip())
         else:
             self.send_to_groqcloud(command)         
-            
-                 
-            
 
     def get_weather(self, city_name="Ghaziabad"):
         url = f"http://api.openweathermap.org/data/2.5/weather?q={city_name}&appid={self.weather_api_key}&units=metric"
@@ -247,96 +243,85 @@ class Assistant:
 
     def send_to_groqcloud(self, command):
         response = client.models.generate_content(
-                model="gemini-2.0-flash",
-               contents=command,
-            )
-
+            model="gemini-2.0-flash",
+            contents=command,
+        )
         print(response.text)
         self.speak(response.text.replace("*", ""))
     
-        
-        
     def remember(self, remem):
-     conn = sqlite3.connect("passwords.db")
-     cursor = conn.cursor()
+        conn = sqlite3.connect("passwords.db")
+        cursor = conn.cursor()
+        # Create table if it doesn't exist
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS remember (
+                remember TEXT
+            )
+        """)
+        # Insert the value
+        cursor.execute("INSERT INTO remember (remember) VALUES (?)", (remem,))
+        conn.commit()
+        conn.close()
+        self.speak("Saved " + remem)  
 
-    # Create table if it doesn't exist
-     cursor.execute("""
-     CREATE TABLE IF NOT EXISTS remember (
-        remember TEXT
-     )
-     """)
+    def whatWasRemembered(self):
+        conn = sqlite3.connect("passwords.db")
+        hi = pd.read_sql("SELECT * FROM remember", conn)
+        fo = [f"{idx}: {value}" for idx, value in enumerate(hi.iloc[:, 0], start=1)]
+        my_string = "\n".join(fo)
+        print(my_string)
+        if my_string:
+            self.speak(my_string)
+        else:
+            self.speak("No memories found")
+            print("No memories found")
 
-    # Insert the value
-     cursor.execute("INSERT INTO remember (remember) VALUES (?)", (remem,))
-    
-     conn.commit()
-     conn.close()
-    
-     self.speak("Saved",remem)  
-    def whatWasRemembered (self):
-     conn = sqlite3.connect("remember.db")
-     hi = pd.read_sql("""SELECT * FROM remember""", conn)
-     fo= [f"{idx}: {value}" for idx, value in enumerate(hi.iloc[:, 0], start=1)]
-     my_string = "\n".join(fo)
-     print(my_string) 
-     if my_string:
-       self.speak(my_string)
-     else:
-         self.speak("No memories found")
-         print("No memories found")
     def cleanallMemory(self):
-         conn = sqlite3.connect("passwords.db")
-         cursor = conn.cursor()
-         cursor.execute("DELETE FROM remember")
-         conn.commit()
-         conn.close()
-         self.speak("All memories deleted")
-         print("All memories deleted")
-# Commit changes and close connection
+        conn = sqlite3.connect("passwords.db")
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM remember")
+        conn.commit()
+        conn.close()
+        self.speak("All memories deleted")
+        print("All memories deleted")
 
-
-
-    def forget(self,forget):
-      conn = sqlite3.connect("passwords.db")
-      cursor = conn.cursor()
-      cursor.execute("DELETE FROM remember WHERE remember = ?", (forget,))
-      conn.commit()
-      conn.close()
-      self.speak("Deleted")
-      print("Deleted")
-      
-# Commit the changes and close the connection
-
+    def forget(self, forget):
+        conn = sqlite3.connect("passwords.db")
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM remember WHERE remember = ?", (forget,))
+        conn.commit()
+        conn.close()
+        self.speak("Deleted")
+        print("Deleted")
       
     def turnonlight(self, entity_id):
-        with Client('homeasssitant_url', 'homeassiatnt_long_lived_acsess_token') as client:
+        with Client('http://192.168.29.128:8123/api', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJiZDEyYzM4MTYzNmY0N2M3YmU0NThiYmE5MjRhZTJmYSIsImlhdCI6MTc0MzQ4MjkzMSwiZXhwIjoyMDU4ODQyOTMxfQ.jT4Pi42iAG7Q1tJhlOGLkhyaDstIOuko9jfUz758okk') as client:
             cos = client.get_domain("light")
             ent = "light." + entity_id
             cos.turn_on(entity_id=ent, rgb_color=[0, 0, 0])
 
     def turnofflight(self, entity_id):
-        with Client('homeasssitant_url', 'homeassiatnt_long_lived_acsess_token') as client:
+        with Client('http://192.168.29.128:8123/api', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJiZDEyYzM4MTYzNmY0N2M3YmU0NThiYmE5MjRhZTJmYSIsImlhdCI6MTc0MzQ4MjkzMSwiZXhwIjoyMDU4ODQyOTMxfQ.jT4Pi42iAG7Q1tJhlOGLkhyaDstIOuko9jfUz758okk') as client:
             cos = client.get_domain("light")
             ent = "light." + entity_id
             cos.turn_off(entity_id=ent)
 
     def turnonfan(self, entity_id):
-        with Client('homeasssitant_url', 'homeassiatnt_long_lived_acsess_token') as client:
+        with Client('http://192.168.29.128:8123/api', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJiZDEyYzM4MTYzNmY0N2M3YmU0NThiYmE5MjRhZTJmYSIsImlhdCI6MTc0MzQ4MjkzMSwiZXhwIjoyMDU4ODQyOTMxfQ.jT4Pi42iAG7Q1tJhlOGLkhyaDstIOuko9jfUz758okk') as client:
             cos = client.get_domain("fan")
             ent = "fan." + entity_id
             print(ent)
             cos.turn_on(entity_id=ent)
 
     def turnofffan(self, entity_id):
-        with Client('homeasssitant_url', 'homeassiatnt_long_lived_acsess_token') as client:
+        with Client('http://192.168.29.128:8123/api', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJiZDEyYzM4MTYzNmY0N2M3YmU0NThiYmE5MjRhZTJmYSIsImlhdCI6MTc0MzQ4MjkzMSwiZXhwIjoyMDU4ODQyOTMxfQ.jT4Pi42iAG7Q1tJhlOGLkhyaDstIOuko9jfUz758okk') as client:
             cos = client.get_domain("fan")
             ent = "fan." + entity_id
             print(ent)
             cos.turn_off(entity_id=ent)
 
     def setcolor(self, entity, color):
-        with Client('homeasssitant_url', 'homeassiatnt_long_lived_acsess_token') as client:
+        with Client('http://192.168.29.128:8123/api', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJiZDEyYzM4MTYzNmY0N2M3YmU0NThiYmE5MjRhZTJmYSIsImlhdCI6MTc0MzQ4MjkzMSwiZXhwIjoyMDU4ODQyOTMxfQ.jT4Pi42iAG7Q1tJhlOGLkhyaDstIOuko9jfUz758okk') as client:
             cos = client.get_domain("light")
             ent = "light." + entity
             rgbint = webcolors.name_to_rgb(color)
@@ -344,7 +329,7 @@ class Assistant:
             cos.turn_on(entity_id=ent, rgb_color=collist)
 
     def lightbrightness(self, entity, brightness):
-        with Client('homeasssitant_url', 'homeassiatnt_long_lived_acsess_token') as client:
+        with Client('http://192.168.29.128:8123/api', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJiZDEyYzM4MTYzNmY0N2M3YmU0NThiYmE5MjRhZTJmYSIsImlhdCI6MTc0MzQ4MjkzMSwiZXhwIjoyMDU4ODQyOTMxfQ.jT4Pi42iAG7Q1tJhlOGLkhyaDstIOuko9jfUz758okk') as client:
             cos = client.get_domain("light")
             ent = "light." + entity
             lightness = round((brightness / 100) * 255)
@@ -366,14 +351,14 @@ class Assistant:
         subprocess.run(f'start powershell python time.py {timeofal}', shell=True)
 
     def turnonswitch(self, entity_id):
-        with Client('homeasssitant_url', 'homeassiatnt_long_lived_acsess_token') as client:
+        with Client('http://192.168.29.128:8123/api', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJiZDEyYzM4MTYzNmY0N2M3YmU0NThiYmE5MjRhZTJmYSIsImlhdCI6MTc0MzQ4MjkzMSwiZXhwIjoyMDU4ODQyOTMxfQ.jT4Pi42iAG7Q1tJhlOGLkhyaDstIOuko9jfUz758okk') as client:
             cos = client.get_domain("switch")
             ent = "switch." + entity_id
             print(ent)
             cos.turn_on(entity_id=ent)
 
     def turnoffswitch(self, entity_id):
-        with Client('homeasssitant_url', 'homeassiatnt_long_lived_acsess_token') as client:
+        with Client('http://192.168.29.128:8123/api', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJiZDEyYzM4MTYzNmY0N2M3YmU0NThiYmE5MjRhZTJmYSIsImlhdCI6MTc0MzQ4MjkzMSwiZXhwIjoyMDU4ODQyOTMxfQ.jT4Pi42iAG7Q1tJhlOGLkhyaDstIOuko9jfUz758okk') as client:
             cos = client.get_domain("switch")
             ent = "switch." + entity_id
             cos.turn_off(entity_id=ent)
@@ -384,34 +369,33 @@ class Assistant:
         elif "hour" in command:
             return 3600
         return 0
+
     def reco(self):
         image = PIL.Image.open('selfie.jpg')
         response = client.models.generate_content(
-              model="gemini-2.0-flash",
-              contents=["What is this image?", image])
+            model="gemini-2.0-flash",
+            contents=["What is this image?(if you could recognize a perticular model of lets say smartphone or anything it is better)", image]
+        )
         print(response.text)
-        self.speak(response.text.replace("*",""))
+        self.speak(response.text.replace("*", ""))
         
-        
-    def set_timer(self, duration):
+    def set_timer(self, timer_duration):
         matches = re.findall(r"(\d+)\s*(seconds?|minutes?|hours?)", timer_duration, re.IGNORECASE)
         if not matches:
-           print("Invalid time format!")
-           return
+            print("Invalid time format!")
+            return
 
         total_seconds = 0
-
-    # Convert each found time unit to seconds
+        # Convert each found time unit to seconds
         for value, unit in matches:
             value = int(value)
             unit = unit.lower()
-        
             if "hour" in unit:
-               total_seconds += value * 3600
+                total_seconds += value * 3600
             elif "minute" in unit:
-               total_seconds += value * 60
+                total_seconds += value * 60
             else:
-               total_seconds += value  # Seconds directly
+                total_seconds += value  # Seconds directly
 
         print(f"Timer set for {total_seconds} seconds.")
 
@@ -421,55 +405,77 @@ class Assistant:
     def extract_alarm_time(self, command):
         if "time" in command:
             return datetime.now()
+
     def cleanup(self):
         self.audio_stream.close()
         self.pa.terminate()
-        self.porcupine.delete()
-        print("Resources cleaned up.")    
+        print("Resources cleaned up.")
 
     def set_alarm(self, alarm_time):
         self.speak(f"Alarm set for {alarm_time}.")
 
     def listen_to_voice(self):
-        print("Listening for 'spark' to activate...")
+     CHUNK_SIZE = 1280
+     FORMAT = pyaudio.paInt16
+     CHANNELS = 1
+     RATE = 16000
+     COOLDOWN_TIME = 2
+     print("Listening for 'hey rhaspy' to activate...")
+     audio = pyaudio.PyAudio()
+     mic_stream = audio.open(format=FORMAT, channels=CHANNELS, rate=RATE, input=True, frames_per_buffer=CHUNK_SIZE)
+     last_detection_time = 0 
+    # Load OpenWakeWord model
+     owwModel = Model(inference_framework='tflite')
 
-        try:
-            while True:
-                pcm = self.audio_stream.read(self.porcupine.frame_length)
-                pcm = struct.unpack_from("h" * self.porcupine.frame_length, pcm)
+     print("Listening for 'Hey Rhasspy'...")
 
-                if self.porcupine.process(pcm) >= 0:
-                    print("Wake word 'spark' detected! Now listening for commands...")
-
-                    self.play_sound()  # Play activation sound
-                    self.listen_for_commands()  # Start listening for user commands
-
-        except KeyboardInterrupt:
-            print("Stopping...")
-        finally:
-            self.cleanup()
+     while True:
+        # Get audio
+        audio_data = np.frombuffer(mic_stream.read(CHUNK_SIZE), dtype=np.int16)
+        
+        # Feed to OpenWakeWord model
+        prediction = owwModel.predict(audio_data)
+        
+        # Check if 'Hey Rhasspy' is detected
+        if prediction.get("hey_rhasspy", 0) > 0.7:
+            current_time = time.time()
+            
+            # Only trigger if enough time has passed since last detection
+            if current_time - last_detection_time > COOLDOWN_TIME:
+                print("Hi")
+                last_detection_time = current_time
+                self.play_sound()  # Play activation sound
+                self.listen_for_commands()
+                
+                # Add a pause after command processing to clear audio buffer
+                time.sleep(0.5)
+                
+                # Flush the audio buffer to prevent false triggers
+                while mic_stream.get_read_available() > 0:
+                    mic_stream.read(CHUNK_SIZE)
+                
+                # Update last detection time again to prevent immediate retrigger
+                last_detection_time = time.time()
+    
                 
     def listen_for_commands(self):
-        while True:
-            try:
-                with self.mic as source:
-                    self.recognizer.adjust_for_ambient_noise(source)
-                    print("Listening for command...")
-                    audio = self.recognizer.listen(source)
-                command = self.recognize_command(audio)
-                print(f"Detected command: {command}")
-                self.process_command(command)
-                print("Listening for the keyword 'assistant' again...")
-                break
-            except sr.UnknownValueError:
-                print("Could not understand the audio, please try again.")
-            except sr.RequestError:
-                print("Could not request results from Google Speech Recognition service.")
-            except sr.WaitTimeoutError:
-                print("No input detected in time. Restarting the listening loop...")
-            finally:
-                print("done")
-                # Removed unconditional play_sound() from finally block.
+     try:
+        with self.mic as source:
+            self.recognizer.adjust_for_ambient_noise(source)
+            print("Listening for command...")
+            audio = self.recognizer.listen(source)
+        command = self.recognize_command(audio)
+        print(f"Detected command: {command}")
+        self.process_command(command)
+     except sr.UnknownValueError:
+        print("Could not understand the audio.")
+     except sr.RequestError:
+        print("Could not request results from Google Speech Recognition service.")
+     except sr.WaitTimeoutError:
+        print("No input detected in time.")
+     finally:
+        print("Listening for the wake word again...")
+        print("done")
                 
     def recognize_command(self, audio):
         return self.recognizer.recognize_google(audio).lower()
@@ -480,10 +486,10 @@ class Assistant:
         pygame.mixer.music.play()
 
 if __name__ == "__main__":
-    home_assistant_url = ""
-    access_token = "homeassiatnt_long_lived_acsess_token"
-    
-    weather_api_key = "openweatherapikey"
+    home_assistant_url = "http://192.168.29.128:8123"
+    access_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJiZDEyYzM4MTYzNmY0N2M3YmU0NThiYmE5MjRhZTJmYSIsImlhdCI6MTc0MzQ4MjkzMSwiZXhwIjoyMDU4ODQyOTMxfQ.jT4Pi42iAG7Q1tJhlOGLkhyaDstIOuko9jfUz758okk"
+    groqcloud_key = "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"
+    weather_api_key = "47f17fcedd2cfb3849a3ec381dc5804e"
     
     # Instantiate the assistant with the required credentials.
     assistant = Assistant(home_assistant_url, access_token, groqcloud_key, weather_api_key)
