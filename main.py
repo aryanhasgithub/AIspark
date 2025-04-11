@@ -32,7 +32,7 @@ from openwakeword.model import Model  # New import for OpenWakeWord
 pygame.mixer.init()
 
 # Initialize the Gemini client (for cloud completions)
-client = genai.Client(api_key="AIzaSyDsg34ztOlb5yqVtm35yQTUuMwwgxOUqeQ")
+client = genai.Client(api_key="your API key")
 
 class Assistant:
     def __init__(self, home_assistant_url, access_token, groqcloud_key, weather_api_key):
@@ -295,33 +295,33 @@ class Assistant:
         print("Deleted")
       
     def turnonlight(self, entity_id):
-        with Client('http://192.168.29.128:8123/api', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJiZDEyYzM4MTYzNmY0N2M3YmU0NThiYmE5MjRhZTJmYSIsImlhdCI6MTc0MzQ4MjkzMSwiZXhwIjoyMDU4ODQyOTMxfQ.jT4Pi42iAG7Q1tJhlOGLkhyaDstIOuko9jfUz758okk') as client:
+        with Client('http://ha ip/api:8123/api', homeassiatnt_long_lived_acsess_token') as client:
             cos = client.get_domain("light")
             ent = "light." + entity_id
             cos.turn_on(entity_id=ent, rgb_color=[0, 0, 0])
 
     def turnofflight(self, entity_id):
-        with Client('http://192.168.29.128:8123/api', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJiZDEyYzM4MTYzNmY0N2M3YmU0NThiYmE5MjRhZTJmYSIsImlhdCI6MTc0MzQ4MjkzMSwiZXhwIjoyMDU4ODQyOTMxfQ.jT4Pi42iAG7Q1tJhlOGLkhyaDstIOuko9jfUz758okk') as client:
+        with Client('http://ha ip/api', homeassiatnt_long_lived_acsess_token') as client:
             cos = client.get_domain("light")
             ent = "light." + entity_id
             cos.turn_off(entity_id=ent)
 
     def turnonfan(self, entity_id):
-        with Client('http://192.168.29.128:8123/api', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJiZDEyYzM4MTYzNmY0N2M3YmU0NThiYmE5MjRhZTJmYSIsImlhdCI6MTc0MzQ4MjkzMSwiZXhwIjoyMDU4ODQyOTMxfQ.jT4Pi42iAG7Q1tJhlOGLkhyaDstIOuko9jfUz758okk') as client:
+        with Client('http://ha ip/api:8123/api', homeassiatnt_long_lived_acsess_token') as client:
             cos = client.get_domain("fan")
             ent = "fan." + entity_id
             print(ent)
             cos.turn_on(entity_id=ent)
 
     def turnofffan(self, entity_id):
-        with Client('http://192.168.29.128:8123/api', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJiZDEyYzM4MTYzNmY0N2M3YmU0NThiYmE5MjRhZTJmYSIsImlhdCI6MTc0MzQ4MjkzMSwiZXhwIjoyMDU4ODQyOTMxfQ.jT4Pi42iAG7Q1tJhlOGLkhyaDstIOuko9jfUz758okk') as client:
+        with Client('http://ha ip/api:8123/api', homeassiatnt_long_lived_acsess_token') as client:
             cos = client.get_domain("fan")
             ent = "fan." + entity_id
             print(ent)
             cos.turn_off(entity_id=ent)
 
     def setcolor(self, entity, color):
-        with Client('http://192.168.29.128:8123/api', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJiZDEyYzM4MTYzNmY0N2M3YmU0NThiYmE5MjRhZTJmYSIsImlhdCI6MTc0MzQ4MjkzMSwiZXhwIjoyMDU4ODQyOTMxfQ.jT4Pi42iAG7Q1tJhlOGLkhyaDstIOuko9jfUz758okk') as client:
+        with Client('http://ha ip/api:8123/api', homeassiatnt_long_lived_acsess_token') as client:
             cos = client.get_domain("light")
             ent = "light." + entity
             rgbint = webcolors.name_to_rgb(color)
@@ -329,7 +329,7 @@ class Assistant:
             cos.turn_on(entity_id=ent, rgb_color=collist)
 
     def lightbrightness(self, entity, brightness):
-        with Client('http://192.168.29.128:8123/api', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJiZDEyYzM4MTYzNmY0N2M3YmU0NThiYmE5MjRhZTJmYSIsImlhdCI6MTc0MzQ4MjkzMSwiZXhwIjoyMDU4ODQyOTMxfQ.jT4Pi42iAG7Q1tJhlOGLkhyaDstIOuko9jfUz758okk') as client:
+        with Client('http://ha ip/api:8123/api', homeassiatnt_long_lived_acsess_token') as client:
             cos = client.get_domain("light")
             ent = "light." + entity
             lightness = round((brightness / 100) * 255)
@@ -351,14 +351,14 @@ class Assistant:
         subprocess.run(f'start powershell python time.py {timeofal}', shell=True)
 
     def turnonswitch(self, entity_id):
-        with Client('http://192.168.29.128:8123/api', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJiZDEyYzM4MTYzNmY0N2M3YmU0NThiYmE5MjRhZTJmYSIsImlhdCI6MTc0MzQ4MjkzMSwiZXhwIjoyMDU4ODQyOTMxfQ.jT4Pi42iAG7Q1tJhlOGLkhyaDstIOuko9jfUz758okk') as client:
+        with Client('http://ha ip/api:8123/api', homeassiatnt_long_lived_acsess_token') as client:
             cos = client.get_domain("switch")
             ent = "switch." + entity_id
             print(ent)
             cos.turn_on(entity_id=ent)
 
     def turnoffswitch(self, entity_id):
-        with Client('http://192.168.29.128:8123/api', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJiZDEyYzM4MTYzNmY0N2M3YmU0NThiYmE5MjRhZTJmYSIsImlhdCI6MTc0MzQ4MjkzMSwiZXhwIjoyMDU4ODQyOTMxfQ.jT4Pi42iAG7Q1tJhlOGLkhyaDstIOuko9jfUz758okk') as client:
+        with Client('http://ha ip/api:8123/api', homeassiatnt_long_lived_acsess_token') as client:
             cos = client.get_domain("switch")
             ent = "switch." + entity_id
             cos.turn_off(entity_id=ent)
@@ -486,10 +486,10 @@ class Assistant:
         pygame.mixer.music.play()
 
 if __name__ == "__main__":
-    home_assistant_url = "http://192.168.29.128:8123"
-    access_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJiZDEyYzM4MTYzNmY0N2M3YmU0NThiYmE5MjRhZTJmYSIsImlhdCI6MTc0MzQ4MjkzMSwiZXhwIjoyMDU4ODQyOTMxfQ.jT4Pi42iAG7Q1tJhlOGLkhyaDstIOuko9jfUz758okk"
-    groqcloud_key = "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"
-    weather_api_key = "47f17fcedd2cfb3849a3ec381dc5804e"
+    home_assistant_url = "http://ha ip/api:8123"
+    access_token = ""
+    groqcloud_key = ""
+    weather_api_key = ""
     
     # Instantiate the assistant with the required credentials.
     assistant = Assistant(home_assistant_url, access_token, groqcloud_key, weather_api_key)
