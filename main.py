@@ -188,7 +188,7 @@ class Assistant:
             brightness = int(parts[1])
             self.lightbrightness(ent, brightness)
         elif "weather" in command:
-            self.get_weather("Ghaziabad")
+            self.get_weather("Enter name of your city here")
         elif "time" in command:
             t = datetime.now().strftime('%I:%M %p')
             self.speak(t)
@@ -225,7 +225,7 @@ class Assistant:
         else:
             self.send_to_groqcloud(command)         
 
-    def get_weather(self, city_name="Ghaziabad"):
+    def get_weather(self, city_name):
         url = f"http://api.openweathermap.org/data/2.5/weather?q={city_name}&appid={self.weather_api_key}&units=metric"
         response = requests.get(url)
         weather_data = response.json()
