@@ -1,4 +1,4 @@
-Here's an improved and more polished version of your project description:
+
 
 ---
 
