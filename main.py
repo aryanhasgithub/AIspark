@@ -27,19 +27,31 @@ import sqlite3
 import pandas as pd
 import numpy as np
 from openwakeword.model import Model  # New import for OpenWakeWord
+from dotenv import load_dotenv  # Import for loading environment variables
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Initialize pygame mixer (used for TTS and for sound prompts)
 pygame.mixer.init()
 
-# Initialize the Gemini client (for cloud completions)
-client = genai.Client(api_key="your API key")
+# Initialize the Gemini client with API key from environment variable
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 class Assistant:
-    def __init__(self, home_assistant_url, access_token, groqcloud_key, weather_api_key):
+    def __init__(self):
+        # Load configuration from environment variables
+        self.home_assistant_url = os.getenv("HOME_ASSISTANT_URL")
+        self.access_token = os.getenv("HOME_ASSISTANT_TOKEN")
+        self.groqcloud_key = os.getenv("GROQ_API_KEY")
+        self.weather_api_key = os.getenv("WEATHER_API_KEY")
+        self.city_name = os.getenv("CITY_NAME", "Ghaziabad")  # Default to Ghaziabad if not set
+        
+        # Validate that required environment variables are present
+        self._validate_env_vars()
+        
         # Home Assistant API client
-        self.client = Client(home_assistant_url, access_token)
-        self.groqcloud_key = groqcloud_key
-        self.weather_api_key = weather_api_key
+        self.client = Client(self.home_assistant_url, self.access_token)
 
         # For voice recognition
         self.recognizer = sr.Recognizer()
@@ -54,7 +66,25 @@ class Assistant:
         self.CHUNK_SIZE = 1280
         self.SAMPLE_RATE = 16000
 
+    def _validate_env_vars(self):
+        """Validate that all required environment variables are present."""
+        required_vars = [
+            "GEMINI_API_KEY",
+            "HOME_ASSISTANT_URL", 
+            "HOME_ASSISTANT_TOKEN",
+            "GROQ_API_KEY",
+            "WEATHER_API_KEY"
+        ]
         
+        missing_vars = []
+        for var in required_vars:
+            if not os.getenv(var):
+                missing_vars.append(var)
+        
+        if missing_vars:
+            raise ValueError(f"Missing required environment variables: {', '.join(missing_vars)}")
+        
+        print("All required environment variables loaded successfully!")
 
     def speak(self, message):
         """Speak the message using edge‑tts streaming and pygame for playback."""
@@ -133,7 +163,7 @@ class Assistant:
                     else:
                         self.turn_off_device(entity_id)
                 elif "weather" in command:
-                    self.get_weather("Ghaziabad")
+                    self.get_weather(self.city_name)
                 elif "time" in command:
                     self.speak(datetime.now().strftime('%I:%M %p'))
                     return datetime.now()
@@ -188,7 +218,7 @@ class Assistant:
             brightness = int(parts[1])
             self.lightbrightness(ent, brightness)
         elif "weather" in command:
-            self.get_weather("Enter name of your city here")
+            self.get_weather(self.city_name)
         elif "time" in command:
             t = datetime.now().strftime('%I:%M %p')
             self.speak(t)
@@ -295,33 +325,33 @@ class Assistant:
         print("Deleted")
       
     def turnonlight(self, entity_id):
-        with Client('http://ha ip/api:8123/api', homeassiatnt_long_lived_acsess_token') as client:
+        with Client(self.home_assistant_url, self.access_token) as client:
             cos = client.get_domain("light")
             ent = "light." + entity_id
             cos.turn_on(entity_id=ent, rgb_color=[0, 0, 0])
 
     def turnofflight(self, entity_id):
-        with Client('http://ha ip/api', homeassiatnt_long_lived_acsess_token') as client:
+        with Client(self.home_assistant_url, self.access_token) as client:
             cos = client.get_domain("light")
             ent = "light." + entity_id
             cos.turn_off(entity_id=ent)
 
     def turnonfan(self, entity_id):
-        with Client('http://ha ip/api:8123/api', homeassiatnt_long_lived_acsess_token') as client:
+        with Client(self.home_assistant_url, self.access_token) as client:
             cos = client.get_domain("fan")
             ent = "fan." + entity_id
             print(ent)
             cos.turn_on(entity_id=ent)
 
     def turnofffan(self, entity_id):
-        with Client('http://ha ip/api:8123/api', homeassiatnt_long_lived_acsess_token') as client:
+        with Client(self.home_assistant_url, self.access_token) as client:
             cos = client.get_domain("fan")
             ent = "fan." + entity_id
             print(ent)
             cos.turn_off(entity_id=ent)
 
     def setcolor(self, entity, color):
-        with Client('http://ha ip/api:8123/api', homeassiatnt_long_lived_acsess_token') as client:
+        with Client(self.home_assistant_url, self.access_token) as client:
             cos = client.get_domain("light")
             ent = "light." + entity
             rgbint = webcolors.name_to_rgb(color)
@@ -329,7 +359,7 @@ class Assistant:
             cos.turn_on(entity_id=ent, rgb_color=collist)
 
     def lightbrightness(self, entity, brightness):
-        with Client('http://ha ip/api:8123/api', homeassiatnt_long_lived_acsess_token') as client:
+        with Client(self.home_assistant_url, self.access_token) as client:
             cos = client.get_domain("light")
             ent = "light." + entity
             lightness = round((brightness / 100) * 255)
@@ -351,14 +381,14 @@ class Assistant:
         subprocess.run(f'start powershell python time.py {timeofal}', shell=True)
 
     def turnonswitch(self, entity_id):
-        with Client('http://ha ip/api:8123/api', homeassiatnt_long_lived_acsess_token') as client:
+        with Client(self.home_assistant_url, self.access_token) as client:
             cos = client.get_domain("switch")
             ent = "switch." + entity_id
             print(ent)
             cos.turn_on(entity_id=ent)
 
     def turnoffswitch(self, entity_id):
-        with Client('http://ha ip/api:8123/api', homeassiatnt_long_lived_acsess_token') as client:
+        with Client(self.home_assistant_url, self.access_token) as client:
             cos = client.get_domain("switch")
             ent = "switch." + entity_id
             cos.turn_off(entity_id=ent)
@@ -486,11 +516,12 @@ class Assistant:
         pygame.mixer.music.play()
 
 if __name__ == "__main__":
-    home_assistant_url = "http://ha ip/api:8123"
-    access_token = ""
-    groqcloud_key = ""
-    weather_api_key = ""
-    
-    # Instantiate the assistant with the required credentials.
-    assistant = Assistant(home_assistant_url, access_token, groqcloud_key, weather_api_key)
-    assistant.listen_to_voice()
+    try:
+        # Instantiate the assistant - credentials will be loaded from .env file
+        assistant = Assistant()
+        assistant.listen_to_voice()
+    except ValueError as e:
+        print(f"Configuration Error: {e}")
+        print("Please check your .env file and ensure all required variables are set.")
+    except Exception as e:
+        print(f"Error starting assistant: {e}")
