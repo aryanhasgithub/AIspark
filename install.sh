@@ -168,7 +168,6 @@ main() {
     echo "2. Activate the virtual environment:"
     echo "   source venv/bin/activate"
     echo
-    echo "2.5 run wake.py"
     echo 
     echo "3. Run the assistant:"
     echo "   python main.py"
